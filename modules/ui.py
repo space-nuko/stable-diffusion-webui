@@ -1249,7 +1249,9 @@ def create_ui(wrap_gradio_gpu_call):
                             gr.HTML(value="")
 
                         with gr.Column():
-                            run_preprocess = gr.Button(value="Preprocess", variant='primary')
+                            with gr.Row():
+                                interrupt_preprocessing = gr.Button("Interrupt")
+                                run_preprocess = gr.Button(value="Preprocess", variant='primary')
 
                     process_split.change(
                         fn=lambda show: gr_show(show),
@@ -1278,7 +1280,7 @@ def create_ui(wrap_gradio_gpu_call):
                     batch_size = gr.Number(label='Batch size', value=1, precision=0)
                     dataset_directory = gr.Textbox(label='Dataset directory', placeholder="Path to directory with input images")
                     log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="textual_inversion")
-                    template_file = gr.Textbox(label='Prompt template file', value=os.path.join(script_path, "textual_inversion_templates", "style_filewords.txt"))
+                    template_file = gr.Textbox(label='Prompt template file', value=os.path.join(script_path, opts.default_prompt_template_file))
                     training_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512)
                     training_height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512)
                     steps = gr.Number(label='Max steps', value=100000, precision=0)
@@ -1417,6 +1419,12 @@ def create_ui(wrap_gradio_gpu_call):
         )
 
         interrupt_training.click(
+            fn=lambda: shared.state.interrupt(),
+            inputs=[],
+            outputs=[],
+        )
+
+        interrupt_preprocessing.click(
             fn=lambda: shared.state.interrupt(),
             inputs=[],
             outputs=[],
