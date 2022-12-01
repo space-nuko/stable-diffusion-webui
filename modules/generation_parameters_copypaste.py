@@ -184,6 +184,9 @@ Steps: 20, Sampler: Euler a, CFG scale: 7, Seed: 965400086, Size: 512x512, Model
         else:
             res[k] = v
 
+    if not "Comma padding backtrack" in res:
+        res["Comma padding backtrack"] = 20
+
     return res
 
 

@@ -114,6 +114,10 @@ def apply_clip_skip(p, x, xs):
     opts.data["CLIP_stop_at_last_layers"] = x
 
 
+def apply_comma_padding_backtrack(p, x, xs):
+    p.comma_padding_backtrack = x
+
+
 def format_value_add_label(p, opt, x):
     if type(x) == float:
         x = round(x, 8)
@@ -166,6 +170,7 @@ axis_options = [
     AxisOption("Sigma noise", float, apply_field("s_noise"), format_value_add_label, None),
     AxisOption("Eta", float, apply_field("eta"), format_value_add_label, None),
     AxisOption("Clip skip", int, apply_clip_skip, format_value_add_label, None),
+    AxisOption("Comma padding backtrack", int, apply_comma_padding_backtrack, format_value_add_label, None),
     AxisOption("Denoising", float, apply_field("denoising_strength"), format_value_add_label, None),
     AxisOption("Cond. Image Mask Weight", float, apply_field("inpainting_mask_weight"), format_value_add_label, None),
 ]

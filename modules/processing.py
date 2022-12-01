@@ -72,7 +72,7 @@ class StableDiffusionProcessing():
     """
     The first set of paramaters: sd_models -> do_not_reload_embeddings represent the minimum required to create a StableDiffusionProcessing
     """
-    def __init__(self, sd_model=None, outpath_samples=None, outpath_grids=None, prompt: str = "", styles: List[str] = None, seed: int = -1, subseed: int = -1, subseed_strength: float = 0, seed_resize_from_h: int = -1, seed_resize_from_w: int = -1, seed_enable_extras: bool = True, sampler_name: str = None, batch_size: int = 1, n_iter: int = 1, steps: int = 50, cfg_scale: float = 7.0, width: int = 512, height: int = 512, restore_faces: bool = False, tiling: bool = False, do_not_save_samples: bool = False, do_not_save_grid: bool = False, extra_generation_params: Dict[Any, Any] = None, overlay_images: Any = None, negative_prompt: str = None, eta: float = None, do_not_reload_embeddings: bool = False, denoising_strength: float = 0, ddim_discretize: str = None, s_churn: float = 0.0, s_tmax: float = None, s_tmin: float = 0.0, s_noise: float = 1.0, override_settings: Dict[str, Any] = None, sampler_index: int = None):
+    def __init__(self, sd_model=None, outpath_samples=None, outpath_grids=None, prompt: str = "", styles: List[str] = None, seed: int = -1, subseed: int = -1, subseed_strength: float = 0, seed_resize_from_h: int = -1, seed_resize_from_w: int = -1, seed_enable_extras: bool = True, sampler_name: str = None, batch_size: int = 1, n_iter: int = 1, steps: int = 50, cfg_scale: float = 7.0, comma_padding_backtrack: int = 20, width: int = 512, height: int = 512, restore_faces: bool = False, tiling: bool = False, do_not_save_samples: bool = False, do_not_save_grid: bool = False, extra_generation_params: Dict[Any, Any] = None, overlay_images: Any = None, negative_prompt: str = None, eta: float = None, do_not_reload_embeddings: bool = False, denoising_strength: float = 0, ddim_discretize: str = None, s_churn: float = 0.0, s_tmax: float = None, s_tmin: float = 0.0, s_noise: float = 1.0, override_settings: Dict[str, Any] = None, sampler_index: int = None):
         if sampler_index is not None:
             print("sampler_index argument for StableDiffusionProcessing does not do anything; use sampler_name", file=sys.stderr)
 
@@ -93,6 +93,7 @@ class StableDiffusionProcessing():
         self.n_iter: int = n_iter
         self.steps: int = steps
         self.cfg_scale: float = cfg_scale
+        self.comma_padding_backtrack: int = comma_padding_backtrack
         self.width: int = width
         self.height: int = height
         self.restore_faces: bool = restore_faces
@@ -235,6 +236,7 @@ class Processed:
         self.s_tmin = p.s_tmin
         self.s_tmax = p.s_tmax
         self.s_noise = p.s_noise
+        self.comma_padding_backtrack = p.comma_padding_backtrack
         self.sampler_noise_scheduler_override = p.sampler_noise_scheduler_override
         self.prompt = self.prompt if type(self.prompt) != list else self.prompt[0]
         self.negative_prompt = self.negative_prompt if type(self.negative_prompt) != list else self.negative_prompt[0]
@@ -407,6 +409,7 @@ def create_infotext(p, all_prompts, all_seeds, all_subseeds, comments, iteration
         "Conditional mask weight": getattr(p, "inpainting_mask_weight", shared.opts.inpainting_mask_weight) if p.is_using_inpainting_conditioning else None,
         "Eta": (None if p.sampler is None or p.sampler.eta == p.sampler.default_eta else p.sampler.eta),
         "Clip skip": None if clip_skip <= 1 else clip_skip,
+        "Comma padding backtrack": None if p.comma_padding_backtrack == 20 else p.comma_padding_backtrack,
         "ENSD": None if opts.eta_noise_seed_delta == 0 else opts.eta_noise_seed_delta,
     }
 
@@ -449,6 +452,8 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
 
     seed = get_fixed_seed(p.seed)
     subseed = get_fixed_seed(p.subseed)
+
+    shared.comma_padding_backtrack = p.comma_padding_backtrack
 
     modules.sd_hijack.model_hijack.apply_circular(p.tiling)
     modules.sd_hijack.model_hijack.clear_comments()

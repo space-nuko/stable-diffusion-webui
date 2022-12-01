@@ -2,7 +2,7 @@ import math
 
 import torch
 
-from modules import prompt_parser, devices
+from modules import prompt_parser, devices, shared
 from modules.shared import opts
 
 
@@ -47,7 +47,7 @@ class FrozenCLIPEmbedderWithCustomWordsBase(torch.nn.Module):
 
                 if token == self.comma_token:
                     last_comma = len(remade_tokens)
-                elif opts.comma_padding_backtrack != 0 and max(len(remade_tokens), 1) % 75 == 0 and last_comma != -1 and len(remade_tokens) - last_comma <= opts.comma_padding_backtrack:
+                elif shared.comma_padding_backtrack != 0 and max(len(remade_tokens), 1) % 75 == 0 and last_comma != -1 and len(remade_tokens) - last_comma <= shared.comma_padding_backtrack:
                     last_comma += 1
                     reloc_tokens = remade_tokens[last_comma:]
                     reloc_mults = multipliers[last_comma:]
