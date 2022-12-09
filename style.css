@@ -501,12 +501,25 @@ input[type="range"]{
     padding: 0;
 }
 
-#refresh_sd_model_checkpoint, #refresh_sd_vae, #refresh_sd_hypernetwork, #refresh_train_hypernetwork_name, #refresh_train_embedding_name, #refresh_localization{
+#refresh_sd_model_checkpoint, #refresh_sd_vae, #refresh_sd_hypernetwork, #refresh_train_hypernetwork_name, #refresh_train_embedding_name, #refresh_localization, #delete_queue_item{
     max-width: 2.5em;
     min-width: 2.5em;
     height: 2.4em;
 }
 
+#queue_pending_delete_button_0, #queue_pending_delete_button_1, #queue_pending_delete_button_2, #queue_pending_delete_button_3, #queue_pending_delete_button_4,
+#queue_pending_delete_button_5, #queue_pending_delete_button_6, #queue_pending_delete_button_7, #queue_pending_delete_button_8, #queue_pending_delete_button_9,
+#queue_pending_delete_button_10, #queue_pending_delete_button_11, #queue_pending_delete_button_12, #queue_pending_delete_button_13, #queue_pending_delete_button_14,
+#queue_pending_delete_button_15, #queue_pending_delete_button_16, #queue_pending_delete_button_17, #queue_pending_delete_button_18, #queue_pending_delete_button_19,
+#queue_finished_delete_button_0, #queue_finished_delete_button_1, #queue_finished_delete_button_2, #queue_finished_delete_button_3, #queue_finished_delete_button_4,
+#queue_finished_delete_button_5, #queue_finished_delete_button_6, #queue_finished_delete_button_7, #queue_finished_delete_button_8, #queue_finished_delete_button_9,
+#queue_finished_delete_button_10, #queue_finished_delete_button_11, #queue_finished_delete_button_12, #queue_finished_delete_button_13, #queue_finished_delete_button_14,
+#queue_finished_delete_button_15, #queue_finished_delete_button_16, #queue_finished_delete_button_17, #queue_finished_delete_button_18, #queue_finished_delete_button_19
+{
+    max-width: 2.5em;
+    min-width: 2.5em;
+    height: 2.4em;
+}
 
 canvas[key="mask"] {
     z-index: 12 !important;

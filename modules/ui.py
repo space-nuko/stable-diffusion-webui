@@ -17,7 +17,8 @@ import gradio.routes
 import gradio.utils
 import numpy as np
 from PIL import Image, PngImagePlugin
-from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call, wrap_gradio_call
+from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call, wrap_gradio_call, queue_lock
+from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
 
 from modules import sd_hijack, sd_models, localization, script_callbacks, ui_extensions, deepbooru
 from modules.paths import script_path
@@ -604,6 +605,115 @@ Requested path was: {f}
                 return result_gallery, generation_info if tabname != "extras" else html_info_x, html_info
 
 
+def create_queue():
+    import random
+    import modules.render_thread as render_thread
+
+    with gr.Blocks(analytics_enabled=False) as queue_interface:
+        all_inputs = []
+        with gr.Row().style(equal_height=False):
+            with gr.Column(variant='panel'):
+                with gr.Group():
+                    with gr.Column():
+                        with gr.Row():
+                            current_type = gr.Textbox(label="Type", value="txt2img")
+                            current_settings = gr.Textbox(label="Settings", value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                    with gr.Column():
+                        with gr.Row():
+                            skip = gr.Button('Skip', elem_id="queue_skip")
+                            interrupt = gr.Button('Interrupt', elem_id="queue_interrupt")
+                            update = gr.Button('Update', elem_id="queue_update")
+                        with gr.Row():
+                            add = gr.Button('Add', elem_id="queue_add")
+                    with gr.Column():
+                        with gr.Row():
+                            progress = 0.56
+                            time_left = "5"
+                            gr.HTML(value=f"""<div class='progressDiv'><div class='progress' style="overflow:visible;width:{progress * 100}%;white-space:nowrap;">{"&nbsp;" * 2 + str(int(progress*100))+"%" + time_left if progress > 0.01 else ""}</div></div>""")
+                with gr.Group():
+                    for i in range(0, 20):
+                        with gr.Row() as row:
+                            with gr.Column():
+                                with gr.Row():
+                                    delete_button = gr.Button("❌", elem_id=f"queue_pending_delete_button_{i}")
+                                    image_preview = gr.Image(visible=False).style(width=64, height=64)
+                                    textbox_type = gr.Textbox(value="txt2img")
+                                    textbox_settings = gr.Textbox()
+
+                        all_inputs += [row, image_preview, textbox_type, textbox_settings]
+
+            with gr.Column(variant='panel'):
+                for i in range(0, 20):
+                    with gr.Row() as row:
+                        with gr.Column():
+                            with gr.Row():
+                                delete_button = gr.Button("❌", elem_id=f"queue_finished_delete_button_{i}")
+                                image_preview = gr.Image(elem_id=f"queue_finished_preview_{i}", type="pil", show_label=False, interactive=False).style(width=64, height=64)
+                                textbox_type = gr.Textbox(value="txt2img")
+                                textbox_settings = gr.Textbox(value="aaaaaaaaaaaaaaaaaaaa" + str(random.random()))
+
+                    all_inputs += [row, image_preview, textbox_type, textbox_settings]
+
+            skip.click(
+                fn=lambda: shared.state.skip(),
+                inputs=[],
+                outputs=[],
+            )
+
+            interrupt.click(
+                fn=lambda: shared.state.interrupt(),
+                inputs=[],
+                outputs=[],
+            )
+
+            def queue_update():
+                print("queue update")
+                result = ["txt2img", "axlckjasd"]
+
+                # pending
+                for i in range(0, min(20, len(render_thread.state_queue.pending))):
+                    prompt = render_thread.state_queue.pending[i]
+                    result += [gr.Row.update(visible=True), None, "txt2img", prompt]
+
+                for i in range(0, 20 - min(20, len(render_thread.state_queue.pending))):
+                    result += [gr.Row.update(visible=False), None, "", ""]
+
+                # finished
+                for i in range(0, min(20, len(render_thread.state_queue.finished))):
+                    a = render_thread.state_queue.finished[i]
+                    result += [gr.Row.update(visible=True), a.images[0] if a.images else None, "txt2img", f"{a.prompt} {a.seed}"]
+
+                for i in range(0, 20 - min(20, len(render_thread.state_queue.finished))):
+                    result += [gr.Row.update(visible=False), None, "", ""]
+
+                return result
+
+            def add_txt2img():
+                print("add\nadd\nadd")
+                render_thread.state_queue.pending.append("masterpiece, 1girl")
+
+            add.click(fn=add_txt2img, inputs=None, outputs=None)
+
+            dep = queue_interface.load(
+                fn=queue_update,
+                inputs=None,
+                outputs=[current_type, current_settings] + all_inputs,
+                every=3,
+                queue=True
+            )
+
+            update.click(
+                fn=queue_update,
+                inputs=None,
+                outputs=[current_type, current_settings] + all_inputs,
+                every=3,
+                queue=True,
+                cancels=[dep]
+            )
+
+    return queue_interface
+
+
 def create_ui():
     import modules.img2img
     import modules.txt2img
@@ -1088,6 +1198,9 @@ def create_ui():
             inputs=[], outputs=[]
         )
 
+    if shared.cmd_opts.enable_batching:
+        queue_interface = create_queue()
+
     with gr.Blocks(analytics_enabled=False) as pnginfo_interface:
         with gr.Row().style(equal_height=False):
             with gr.Column(variant='panel'):
@@ -1564,6 +1677,9 @@ def create_ui():
         (modelmerger_interface, "Checkpoint Merger", "modelmerger"),
         (train_interface, "Train", "ti"),
     ]
+
+    if shared.cmd_opts.enable_batching:
+        interfaces.insert(3, (queue_interface, "Queue", "queue"))
 
     css = ""
 

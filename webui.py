@@ -26,6 +26,7 @@ import modules.sd_models
 import modules.sd_vae
 import modules.txt2img
 import modules.script_callbacks
+import modules.render_thread
 
 import modules.ui
 from modules import modelloader
@@ -87,6 +88,9 @@ def initialize():
 
     signal.signal(signal.SIGINT, sigint_handler)
 
+    if cmd_opts.enable_batching:
+        modules.render_thread.initialize()
+
 
 def setup_cors(app):
     if cmd_opts.cors_allow_origins and cmd_opts.cors_allow_origins_regex:
@@ -137,7 +141,7 @@ def webui():
 
         shared.demo = modules.ui.create_ui()
 
-        app, local_url, share_url = shared.demo.launch(
+        app, local_url, share_url = shared.demo.queue(default_enabled=True).launch(
             share=cmd_opts.share,
             server_name=server_name,
             server_port=cmd_opts.port,
