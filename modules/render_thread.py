@@ -10,8 +10,41 @@ from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusion
 
 class StateQueue:
     def __init__(self):
+        self.next_index = 0
         self.pending = []
         self.finished = []
+
+    def enqueue(self, batch_kind, info_html, args):
+        self.pending.append(BatchJob(self.next_index, batch_kind, info_html, args))
+        self.next_index += 1
+        return len(self.pending), len(self.finished)
+
+    def delete(self, queue_name, queue_index, job_index):
+        if queue_name == "pending":
+            ls = self.pending
+        else:
+            ls = self.finished
+
+        if queue_index < 0 or len(ls) >= queue_index:
+            return None
+
+        job = ls[queue_index]
+        if job.index != job_index:
+            return None
+
+        return ls.pop(queue_index)
+
+
+class BatchJob:
+    def __init__(self, index, batch_kind, info_html, args):
+        self.batch_kind = batch_kind
+        self.index = index
+        self.status = "pending"
+        self.args = args
+        self.images = []
+        self.processed_js = {}
+        self.info_html = info_html
+
 
 LOCK_TIMEOUT = 15
 
@@ -24,7 +57,6 @@ lock = threading.RLock()
 
 def queue_check():
     if call_queue.queue_lock.locked():
-        print("already queued")
         return
 
     with call_queue.queue_lock:
@@ -35,40 +67,38 @@ def queue_check():
 
         print("+++++++++ start +++++++++")
 
-        p = StableDiffusionProcessingTxt2Img(
-            sd_model=shared.sd_model,
-            outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
-            outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
-            prompt="1girl",
-            styles=[],
-            negative_prompt="",
-            seed=-1,
-            subseed=-1,
-            #subseed_strength=subseed_strength,
-            #seed_resize_from_h=seed_resize_from_h,
-            #seed_resize_from_w=seed_resize_from_w,
-            #seed_enable_extras=seed_enable_extras,
-            sampler_name="DDIM",
-            batch_size=4,
-            n_iter=1,
-            steps=30,
-            cfg_scale=0.7,
-            width=512,
-            height=512,
-            restore_faces=False,
-            tiling=False,
-            enable_hr=False,
-            denoising_strength=None,
-            firstphase_width=None,
-            firstphase_height=None,
-        )
+        images = []
+        processed_js = {}
+        info_html = ""
 
-        shared.state.begin()
+        try:
+            import modules.img2img
+            import modules.txt2img
+            import modules.extras
 
-        processed = process_images(p)
-        state_queue.finished.append(processed)
+            if item.batch_kind == "txt2img":
+                images, processed_js, info_html = modules.txt2img.txt2img(*item.args)
+            elif item.batch_kind == "img2img":
+                images, processed_js, info_html = modules.img2img.img2img(*item.args)
+            elif item.batch_kind == "extras":
+                images, info_html, _ = modules.extras.run_extras(*item.args)
+            else:
+                print(f"unknown batch kind {item.batch_kind}!")
 
-        shared.state.end()
+            item.images = images
+            item.processed_js = processed_js
+            item.info_html = info_html
+            item.status = "succeeded"
+        except Exception as e:
+            print("Error processing: " + str(e))
+            item.info_html = f"<div>Error: {str(e)}</div>"
+            item.status = "failed"
+
+        shared.state.skipped = False
+        shared.state.interrupted = False
+        shared.state.job_count = 0
+
+        state_queue.finished.append(item)
 
         print("finish")
 

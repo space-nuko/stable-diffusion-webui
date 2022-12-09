@@ -33,6 +33,7 @@ import modules.scripts
 import modules.shared as shared
 import modules.styles
 import modules.textual_inversion.ui
+import modules.render_thread as render_thread
 from modules import prompt_parser
 from modules.images import save_image
 from modules.sd_hijack import model_hijack
@@ -408,6 +409,7 @@ def create_toprow(is_img2img):
                 skip = gr.Button('Skip', elem_id=f"{id_part}_skip")
                 interrupt = gr.Button('Interrupt', elem_id=f"{id_part}_interrupt")
                 submit = gr.Button('Generate', elem_id=f"{id_part}_generate", variant='primary')
+                enqueue = gr.Button('Enqueue', elem_id=f"{id_part}_enqueue", variant='primary')
 
                 skip.click(
                     fn=lambda: shared.state.skip(),
@@ -430,7 +432,7 @@ def create_toprow(is_img2img):
                     prompt_style2 = gr.Dropdown(label="Style 2", elem_id=f"{id_part}_style2_index", choices=[k for k, v in shared.prompt_styles.styles.items()], value=next(iter(shared.prompt_styles.styles.keys())))
                     prompt_style2.save_to_config = True
 
-    return prompt, roll, prompt_style, negative_prompt, prompt_style2, submit, button_interrogate, button_deepbooru, prompt_style_apply, save_style, paste, token_counter, token_button
+    return prompt, roll, prompt_style, negative_prompt, prompt_style2, submit, button_interrogate, button_deepbooru, prompt_style_apply, save_style, paste, token_counter, token_button, enqueue
 
 
 def setup_progressbar(progressbar, preview, id_part, textinfo=None):
@@ -606,25 +608,22 @@ Requested path was: {f}
 
 
 def create_queue():
-    import random
-    import modules.render_thread as render_thread
-
     with gr.Blocks(analytics_enabled=False) as queue_interface:
         all_inputs = []
+        all_deletes_pending = []
+        all_deletes_finished = []
         with gr.Row().style(equal_height=False):
             with gr.Column(variant='panel'):
                 with gr.Group():
                     with gr.Column():
                         with gr.Row():
                             current_type = gr.Textbox(label="Type", value="txt2img")
-                            current_settings = gr.Textbox(label="Settings", value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                            current_settings = gr.HTML(label="Settings", value="")
                     with gr.Column():
                         with gr.Row():
                             skip = gr.Button('Skip', elem_id="queue_skip")
                             interrupt = gr.Button('Interrupt', elem_id="queue_interrupt")
                             update = gr.Button('Update', elem_id="queue_update")
-                        with gr.Row():
-                            add = gr.Button('Add', elem_id="queue_add")
                     with gr.Column():
                         with gr.Row():
                             progress = 0.56
@@ -636,11 +635,14 @@ def create_queue():
                             with gr.Column():
                                 with gr.Row():
                                     delete_button = gr.Button("❌", elem_id=f"queue_pending_delete_button_{i}")
-                                    image_preview = gr.Image(visible=False).style(width=64, height=64)
-                                    textbox_type = gr.Textbox(value="txt2img")
-                                    textbox_settings = gr.Textbox()
+                                    image_preview = gr.Image(visible=False)
+                                    job_index = gr.Number(visible=False)
+                                    textbox_type = gr.Textbox(value="")
+                                with gr.Row():
+                                    textbox_settings = gr.HTML()
 
-                        all_inputs += [row, image_preview, textbox_type, textbox_settings]
+                        all_deletes_pending.append((delete_button, job_index))
+                        all_inputs += [row, job_index, image_preview, textbox_type, textbox_settings]
 
             with gr.Column(variant='panel'):
                 for i in range(0, 20):
@@ -649,10 +651,13 @@ def create_queue():
                             with gr.Row():
                                 delete_button = gr.Button("❌", elem_id=f"queue_finished_delete_button_{i}")
                                 image_preview = gr.Image(elem_id=f"queue_finished_preview_{i}", type="pil", show_label=False, interactive=False).style(width=64, height=64)
+                                job_index = gr.Number(visible=False)
                                 textbox_type = gr.Textbox(value="txt2img")
-                                textbox_settings = gr.Textbox(value="aaaaaaaaaaaaaaaaaaaa" + str(random.random()))
+                            with gr.Row():
+                                textbox_settings = gr.HTML(value="")
 
-                    all_inputs += [row, image_preview, textbox_type, textbox_settings]
+                    all_deletes_finished.append((delete_button, job_index))
+                    all_inputs += [row, job_index, image_preview, textbox_type, textbox_settings]
 
             skip.click(
                 fn=lambda: shared.state.skip(),
@@ -672,33 +677,27 @@ def create_queue():
 
                 # pending
                 for i in range(0, min(20, len(render_thread.state_queue.pending))):
-                    prompt = render_thread.state_queue.pending[i]
-                    result += [gr.Row.update(visible=True), None, "txt2img", prompt]
+                    item = render_thread.state_queue.pending[i]
+                    result += [gr.Row.update(visible=True), item.index, None, item.batch_kind, item.info_html]
 
                 for i in range(0, 20 - min(20, len(render_thread.state_queue.pending))):
-                    result += [gr.Row.update(visible=False), None, "", ""]
+                    result += [gr.Row.update(visible=False), -1, None, "", ""]
 
                 # finished
                 for i in range(0, min(20, len(render_thread.state_queue.finished))):
-                    a = render_thread.state_queue.finished[i]
-                    result += [gr.Row.update(visible=True), a.images[0] if a.images else None, "txt2img", f"{a.prompt} {a.seed}"]
+                    item = render_thread.state_queue.finished[i]
+                    result += [gr.Row.update(visible=True), item.index, item.images[0] if item.images else None, item.batch_kind, item.info_html]
 
                 for i in range(0, 20 - min(20, len(render_thread.state_queue.finished))):
-                    result += [gr.Row.update(visible=False), None, "", ""]
+                    result += [gr.Row.update(visible=False), -1, None, "", ""]
 
                 return result
-
-            def add_txt2img():
-                print("add\nadd\nadd")
-                render_thread.state_queue.pending.append("masterpiece, 1girl")
-
-            add.click(fn=add_txt2img, inputs=None, outputs=None)
 
             dep = queue_interface.load(
                 fn=queue_update,
                 inputs=None,
                 outputs=[current_type, current_settings] + all_inputs,
-                every=3,
+                # every=10,
                 queue=True
             )
 
@@ -706,10 +705,28 @@ def create_queue():
                 fn=queue_update,
                 inputs=None,
                 outputs=[current_type, current_settings] + all_inputs,
-                every=3,
+                # every=10,
                 queue=True,
                 cancels=[dep]
             )
+
+            for idx, pair in enumerate(all_deletes_pending):
+                btn, job_idx = pair
+
+                def delete(job_idx, i=idx):
+                    render_thread.state_queue.delete('pending', i, job_idx)
+                    return queue_update()
+
+                btn.click(fn=delete, inputs=[job_idx], outputs=[current_type, current_settings] + all_inputs)
+
+            for idx, pair in enumerate(all_deletes_finished):
+                btn, job_idx = pair
+
+                def delete(job_idx, i=idx):
+                    render_thread.state_queue.delete('finished', i, job_idx)
+                    return queue_update()
+
+                btn.click(delete, inputs=[job_idx], outputs=[current_type, current_settings] + all_inputs)
 
     return queue_interface
 
@@ -726,7 +743,7 @@ def create_ui():
     modules.scripts.scripts_txt2img.initialize_scripts(is_img2img=False)
 
     with gr.Blocks(analytics_enabled=False) as txt2img_interface:
-        txt2img_prompt, roll, txt2img_prompt_style, txt2img_negative_prompt, txt2img_prompt_style2, submit, _, _, txt2img_prompt_style_apply, txt2img_save_style, txt2img_paste, token_counter, token_button = create_toprow(is_img2img=False)
+        txt2img_prompt, roll, txt2img_prompt_style, txt2img_negative_prompt, txt2img_prompt_style2, submit, _, _, txt2img_prompt_style_apply, txt2img_save_style, txt2img_paste, token_counter, token_button, txt2img_enqueue = create_toprow(is_img2img=False)
         dummy_component = gr.Label(visible=False)
         txt_prompt_img = gr.File(label="", elem_id="txt2img_prompt_image", file_count="single", type="bytes", visible=False)
 
@@ -775,30 +792,32 @@ def create_ui():
             connect_reuse_seed(seed, reuse_seed, generation_info, dummy_component, is_subseed=False)
             connect_reuse_seed(subseed, reuse_subseed, generation_info, dummy_component, is_subseed=True)
 
+            txt2img_inputs = [
+                txt2img_prompt,
+                txt2img_negative_prompt,
+                txt2img_prompt_style,
+                txt2img_prompt_style2,
+                steps,
+                sampler_index,
+                restore_faces,
+                tiling,
+                batch_count,
+                batch_size,
+                cfg_scale,
+                seed,
+                subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox,
+                height,
+                width,
+                enable_hr,
+                denoising_strength,
+                firstphase_width,
+                firstphase_height,
+            ] + custom_inputs
+
             txt2img_args = dict(
                 fn=wrap_gradio_gpu_call(modules.txt2img.txt2img),
                 _js="submit",
-                inputs=[
-                    txt2img_prompt,
-                    txt2img_negative_prompt,
-                    txt2img_prompt_style,
-                    txt2img_prompt_style2,
-                    steps,
-                    sampler_index,
-                    restore_faces,
-                    tiling,
-                    batch_count,
-                    batch_size,
-                    cfg_scale,
-                    seed,
-                    subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox,
-                    height,
-                    width,
-                    enable_hr,
-                    denoising_strength,
-                    firstphase_width,
-                    firstphase_height,
-                ] + custom_inputs,
+                inputs=txt2img_inputs,
 
                 outputs=[
                     txt2img_gallery,
@@ -810,6 +829,11 @@ def create_ui():
 
             txt2img_prompt.submit(**txt2img_args)
             submit.click(**txt2img_args)
+
+            def do_enqueue_txt2img(*args):
+                pending, finished = render_thread.state_queue.enqueue("txt2img", f"<div>{args[0]}</div>", args)
+                return f"<div>Enqueued txt2img prompt:{args[0]}</div><wbr><div class='performance'>Pending: {pending} | Finished: {finished}</div>"
+            txt2img_enqueue.click(fn=do_enqueue_txt2img, inputs=txt2img_inputs, outputs=[html_info])
 
             txt_prompt_img.change(
                 fn=modules.images.image_data,
@@ -880,7 +904,7 @@ def create_ui():
     modules.scripts.scripts_img2img.initialize_scripts(is_img2img=True)
 
     with gr.Blocks(analytics_enabled=False) as img2img_interface:
-        img2img_prompt, roll, img2img_prompt_style, img2img_negative_prompt, img2img_prompt_style2, submit, img2img_interrogate, img2img_deepbooru, img2img_prompt_style_apply, img2img_save_style, img2img_paste, token_counter, token_button = create_toprow(is_img2img=True)
+        img2img_prompt, roll, img2img_prompt_style, img2img_negative_prompt, img2img_prompt_style2, submit, img2img_interrogate, img2img_deepbooru, img2img_prompt_style_apply, img2img_save_style, img2img_paste, token_counter, token_button, img2img_enqueue = create_toprow(is_img2img=True)
 
         with gr.Row(elem_id='img2img_progress_row'):
             img2img_prompt_img = gr.File(label="", elem_id="img2img_prompt_image", file_count="single", type="bytes", visible=False)
@@ -996,43 +1020,45 @@ def create_ui():
                 ],
             )
 
+            img2img_inputs = [
+                dummy_component,
+                img2img_prompt,
+                img2img_negative_prompt,
+                img2img_prompt_style,
+                img2img_prompt_style2,
+                init_img,
+                init_img_with_mask,
+                init_img_with_mask_orig,
+                init_img_inpaint,
+                init_mask_inpaint,
+                mask_mode,
+                steps,
+                sampler_index,
+                mask_blur,
+                mask_alpha,
+                inpainting_fill,
+                restore_faces,
+                tiling,
+                batch_count,
+                batch_size,
+                cfg_scale,
+                denoising_strength,
+                seed,
+                subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox,
+                height,
+                width,
+                resize_mode,
+                inpaint_full_res,
+                inpaint_full_res_padding,
+                inpainting_mask_invert,
+                img2img_batch_input_dir,
+                img2img_batch_output_dir,
+            ] + custom_inputs
+
             img2img_args = dict(
                 fn=wrap_gradio_gpu_call(modules.img2img.img2img),
                 _js="submit_img2img",
-                inputs=[
-                    dummy_component,
-                    img2img_prompt,
-                    img2img_negative_prompt,
-                    img2img_prompt_style,
-                    img2img_prompt_style2,
-                    init_img,
-                    init_img_with_mask,
-                    init_img_with_mask_orig,
-                    init_img_inpaint,
-                    init_mask_inpaint,
-                    mask_mode,
-                    steps,
-                    sampler_index,
-                    mask_blur,
-                    mask_alpha,
-                    inpainting_fill,
-                    restore_faces,
-                    tiling,
-                    batch_count,
-                    batch_size,
-                    cfg_scale,
-                    denoising_strength,
-                    seed,
-                    subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox,
-                    height,
-                    width,
-                    resize_mode,
-                    inpaint_full_res,
-                    inpaint_full_res_padding,
-                    inpainting_mask_invert,
-                    img2img_batch_input_dir,
-                    img2img_batch_output_dir,
-                ] + custom_inputs,
+                inputs=img2img_inputs,
                 outputs=[
                     img2img_gallery,
                     generation_info,
@@ -1043,6 +1069,12 @@ def create_ui():
 
             img2img_prompt.submit(**img2img_args)
             submit.click(**img2img_args)
+
+            def do_enqueue_img2img(*args):
+                print("add\nadd\nadd")
+                pending, finished = render_thread.state_queue.enqueue("img2img", f"<div>{args[1]}</div>", args)
+                return f"<div>Enqueued img2img prompt:{args[1]}</div><wbr><div class='performance'>Pending: {pending} | Finished: {finished}</div>"
+            img2img_enqueue.click(fn=do_enqueue_img2img, inputs=img2img_inputs, outputs=[html_info])
 
             img2img_interrogate.click(
                 fn=interrogate,
@@ -1055,7 +1087,6 @@ def create_ui():
                 inputs=[init_img],
                 outputs=[img2img_prompt],
             )
-
 
             roll.click(
                 fn=roll_artist,
@@ -1132,6 +1163,7 @@ def create_ui():
                         show_extras_results = gr.Checkbox(label='Show result images', value=True)
 
                 submit = gr.Button('Generate', elem_id="extras_generate", variant='primary')
+                enqueue = gr.Button('Enqueue', elem_id="extras_enqueue")
 
                 with gr.Tabs(elem_id="extras_resize_mode"):
                     with gr.TabItem('Scale by'):
@@ -1162,29 +1194,30 @@ def create_ui():
 
             result_images, html_info_x, html_info = create_output_panel("extras", opts.outdir_extras_samples)
 
+        extras_inputs = [
+            dummy_component,
+            dummy_component,
+            extras_image,
+            image_batch,
+            extras_batch_input_dir,
+            extras_batch_output_dir,
+            show_extras_results,
+            gfpgan_visibility,
+            codeformer_visibility,
+            codeformer_weight,
+            upscaling_resize,
+            upscaling_resize_w,
+            upscaling_resize_h,
+            upscaling_crop,
+            extras_upscaler_1,
+            extras_upscaler_2,
+            extras_upscaler_2_visibility,
+            upscale_before_face_fix,
+        ]
         submit.click(
             fn=wrap_gradio_gpu_call(modules.extras.run_extras),
             _js="get_extras_tab_index",
-            inputs=[
-                dummy_component,
-                dummy_component,
-                extras_image,
-                image_batch,
-                extras_batch_input_dir,
-                extras_batch_output_dir,
-                show_extras_results,
-                gfpgan_visibility,
-                codeformer_visibility,
-                codeformer_weight,
-                upscaling_resize,
-                upscaling_resize_w,
-                upscaling_resize_h,
-                upscaling_crop,
-                extras_upscaler_1,
-                extras_upscaler_2,
-                extras_upscaler_2_visibility,
-                upscale_before_face_fix,
-            ],
+            inputs=extras_inputs,
             outputs=[
                 result_images,
                 html_info_x,
@@ -1197,6 +1230,12 @@ def create_ui():
             fn=modules.extras.clear_cache,
             inputs=[], outputs=[]
         )
+
+        def do_enqueue_extras(*args):
+            print("add\nadd\nadd")
+            pending, finished = render_thread.state_queue.enqueue("extras", f"<div>???</div>", args)
+            return f"<div>Enqueued extras prompt</div><wbr><div class='performance'>Pending: {pending} | Finished: {finished}</div>"
+        enqueue.click(fn=do_enqueue_extras, inputs=extras_inputs, outputs=[html_info])
 
     if shared.cmd_opts.enable_batching:
         queue_interface = create_queue()
