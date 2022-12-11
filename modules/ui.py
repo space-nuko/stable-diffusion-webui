@@ -707,7 +707,7 @@ def create_queue():
                 outputs=[current_type, current_settings] + all_inputs,
                 # every=10,
                 queue=True,
-                cancels=[dep]
+                # cancels=[dep]
             )
 
             for idx, pair in enumerate(all_deletes_pending):
