@@ -490,7 +490,7 @@ Requested path was: {f}
                         save = gr.Button('Save', elem_id=f'save_{tabname}')
                         save_zip = gr.Button('Zip', elem_id=f'save_zip_{tabname}')
 
-                    buttons = parameters_copypaste.create_buttons(["img2img", "inpaint", "extras"])
+                    buttons = parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
 
                 open_folder_button.click(
                     fn=lambda: open_folder(opts.outdir_samples or outdir),
