@@ -23,13 +23,14 @@ registered_param_bindings = []
 
 
 class ParamBinding:
-    def __init__(self, paste_button, tabname, source_text_component=None, source_image_component=None, source_tabname=None, override_settings_component=None):
+    def __init__(self, paste_button, tabname, source_text_component=None, source_image_component=None, source_tabname=None, override_settings_component=None, paste_field_names=[]):
         self.paste_button = paste_button
         self.tabname = tabname
         self.source_text_component = source_text_component
         self.source_image_component = source_image_component
         self.source_tabname = source_tabname
         self.override_settings_component = override_settings_component
+        self.paste_field_names = paste_field_names
 
 
 def reset():
@@ -74,6 +75,19 @@ def image_from_url_text(filedata):
     return image
 
 
+def get_paste_field_names(tabname):
+    import modules.scripts
+
+    paste_field_names = ['Prompt', 'Negative prompt', 'Steps', 'Face restoration'] + (["Seed"] if shared.opts.send_seed else [])
+
+    if tabname == "txt2img":
+        paste_field_names += modules.scripts.scripts_txt2img.paste_field_names
+    elif tabname == "img2img":
+        paste_field_names += modules.scripts.scripts_img2img.paste_field_names
+
+    return paste_field_names
+
+
 def add_paste_fields(tabname, init_img, fields):
     paste_fields[tabname] = {"init_img": init_img, "fields": fields}
 
@@ -97,8 +111,9 @@ def bind_buttons(buttons, send_image, send_generate_info):
     for tabname, button in buttons.items():
         source_text_component = send_generate_info if isinstance(send_generate_info, gr.components.Component) else None
         source_tabname = send_generate_info if isinstance(send_generate_info, str) else None
+        paste_field_names = get_paste_field_names(tabname)
 
-        register_paste_params_button(ParamBinding(paste_button=button, tabname=tabname, source_text_component=source_text_component, source_image_component=send_image, source_tabname=source_tabname))
+        register_paste_params_button(ParamBinding(paste_button=button, tabname=tabname, source_text_component=source_text_component, source_image_component=send_image, source_tabname=source_tabname, paste_field_names=paste_field_names))
 
 
 def register_paste_params_button(binding: ParamBinding):
@@ -133,11 +148,11 @@ def connect_paste_params_buttons():
             connect_paste(binding.paste_button, fields, binding.source_text_component, binding.override_settings_component, binding.tabname)
 
         if binding.source_tabname is not None and fields is not None:
-            paste_field_names = ['Prompt', 'Negative prompt', 'Steps', 'Face restoration'] + (["Seed"] if shared.opts.send_seed else [])
+            print(binding.paste_field_names)
             binding.paste_button.click(
                 fn=lambda *x: x,
-                inputs=[field for field, name in paste_fields[binding.source_tabname]["fields"] if name in paste_field_names],
-                outputs=[field for field, name in fields if name in paste_field_names],
+                inputs=[field for field, name in paste_fields[binding.source_tabname]["fields"] if name in binding.paste_field_names],
+                outputs=[field for field, name in fields if name in binding.paste_field_names],
             )
 
         binding.paste_button.click(
@@ -330,11 +345,13 @@ def create_override_settings_dict(text_pairs):
 
 def connect_paste(button, paste_fields, input_comp, override_settings_component, tabname):
     def paste_func(prompt):
+        print("Prompt: " + str(prompt))
         if not prompt and not shared.cmd_opts.hide_ui_dir_config:
             filename = os.path.join(data_path, "params.txt")
             if os.path.exists(filename):
                 with open(filename, "r", encoding="utf8") as file:
                     prompt = file.read()
+                    print("GET" + prompt)
 
         params = parse_generation_parameters(prompt)
         script_callbacks.infotext_pasted_callback(prompt, params)
@@ -346,6 +363,7 @@ def connect_paste(button, paste_fields, input_comp, override_settings_component,
             else:
                 v = params.get(key, None)
 
+            print(str(output) + ": " + str(key) + " --- " + str(v))
             if v is None:
                 res.append(gr.update())
             elif isinstance(v, type_of_gr_update):
@@ -358,6 +376,7 @@ def connect_paste(button, paste_fields, input_comp, override_settings_component,
                         val = False
                     else:
                         val = valtype(v)
+                    print("!!!" + str(output) + ": " + str(key) + " --- " + val + " " + valtype)
 
                     res.append(gr.update(value=val))
                 except Exception:

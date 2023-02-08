@@ -634,6 +634,7 @@ def create_ui():
             parameters_copypaste.add_paste_fields("txt2img", None, txt2img_paste_fields)
             parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
                 paste_button=txt2img_paste, tabname="txt2img", source_text_component=txt2img_prompt, source_image_component=None, override_settings_component=override_settings,
+                paste_field_names=parameters_copypaste.get_paste_field_names("txt2img")
             ))
 
             txt2img_preview_params = [
@@ -967,6 +968,7 @@ def create_ui():
             parameters_copypaste.add_paste_fields("inpaint", init_img_with_mask, img2img_paste_fields)
             parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
                 paste_button=img2img_paste, tabname="img2img", source_text_component=img2img_prompt, source_image_component=None, override_settings_component=override_settings,
+                paste_field_names=parameters_copypaste.get_paste_field_names("img2img")
             ))
 
     modules.scripts.scripts_current = None
@@ -989,6 +991,7 @@ def create_ui():
                 for tabname, button in buttons.items():
                     parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
                         paste_button=button, tabname=tabname, source_text_component=generation_info, source_image_component=image,
+                        paste_field_names=parameters_copypaste.get_paste_field_names(tabname),
                     ))
 
         image.change(

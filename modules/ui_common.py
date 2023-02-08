@@ -200,7 +200,8 @@ Requested path was: {f}
 
             for paste_tabname, paste_button in buttons.items():
                 parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
-                    paste_button=paste_button, tabname=paste_tabname, source_tabname="txt2img" if tabname == "txt2img" else None, source_image_component=result_gallery
+                    paste_button=paste_button, tabname=paste_tabname, source_tabname="txt2img" if tabname == "txt2img" else None, source_image_component=result_gallery,
+                    paste_field_names=parameters_copypaste.get_paste_field_names(tabname)
                 ))
 
             return result_gallery, generation_info if tabname != "extras" else html_info_x, html_info, html_log
