@@ -722,7 +722,6 @@ footer {
     min-height: 0 !important;
     padding: .625rem .75rem;
     margin-left: -0.75em
-
 }
 
 #txtimg_hr_finalres .resolution{
@@ -737,6 +736,16 @@ footer {
     flex: 0;
     white-space: nowrap;
     min-width: auto;
+}
+
+#img2img_finalres{
+    min-height: 0 !important;
+    padding: .625rem .75rem;
+    margin-left: -0.75em
+}
+
+#img2img_finalres .resolution{
+    font-weight: bold;
 }
 
 #img2img_copy_to_img2img, #img2img_copy_to_sketch, #img2img_copy_to_inpaint, #img2img_copy_to_inpaint_sketch{

@@ -138,6 +138,20 @@ def calc_resolution_hires(enable, width, height, hr_scale, hr_resize_x, hr_resiz
     return f"resize: from <span class='resolution'>{p.width}x{p.height}</span> to <span class='resolution'>{p.hr_resize_x or p.hr_upscale_to_x}x{p.hr_resize_y or p.hr_upscale_to_y}</span>"
 
 
+def calc_resolution_img2img(init_img, scale, resize_x, resize_y, resize_mode):
+    if not init_img:
+        return ""
+
+    if scale > 1:
+        width = int(init_img.width * scale)
+        height = int(init_img.height * scale)
+    else:
+        width = resize_x
+        height = resize_y
+
+    return f"resize: from <span class='resolution'>{init_img.width}x{init_img.height}</span> to <span class='resolution'>{width}x{height}</span>"
+
+
 def apply_styles(prompt, prompt_neg, styles):
     prompt = shared.prompt_styles.apply_styles_to_prompt(prompt, styles)
     prompt_neg = shared.prompt_styles.apply_negative_styles_to_prompt(prompt_neg, styles)
@@ -754,8 +768,13 @@ def create_ui():
                     elif category == "dimensions":
                         with FormRow():
                             with gr.Column(elem_id="img2img_column_size", scale=4):
-                                width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="img2img_width")
-                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="img2img_height")
+                                with FormRow(variant="compact"):
+                                    final_resolution = FormHTML(value="", elem_id="img2img_finalres", label="Upscaled resolution", interactive=False)
+                                with FormRow(variant="compact"):
+                                    scale = gr.Slider(minimum=1.0, maximum=4.0, step=0.05, label="Upscale by", value=1.0, elem_id="img2img_scale")
+                                with FormRow(variant="compact"):
+                                    width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="img2img_width")
+                                    height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="img2img_height")
 
                             res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="img2img_res_switch_btn")
                             if opts.dimensions_and_batch_together:
@@ -821,6 +840,22 @@ def create_ui():
                                     outputs=[inpaint_controls, mask_alpha],
                                 )
 
+            img2img_resolution_preview_inputs = [init_img, scale, width, height, resize_mode]
+            for input in img2img_resolution_preview_inputs:
+                input.change(
+                    fn=calc_resolution_img2img,
+                    inputs=img2img_resolution_preview_inputs,
+                    outputs=[final_resolution],
+                    show_progress=False,
+                )
+                input.change(
+                    None,
+                    _js="onCalcResolutionImg2Img",
+                    inputs=img2img_resolution_preview_inputs,
+                    outputs=[],
+                    show_progress=False,
+                )
+
             img2img_gallery, generation_info, html_info, html_log = create_output_panel("img2img", opts.outdir_img2img_samples)
 
             connect_reuse_seed(seed, reuse_seed, generation_info, dummy_component, is_subseed=False)
@@ -869,6 +904,7 @@ def create_ui():
                     subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox,
                     height,
                     width,
+                    scale,
                     resize_mode,
                     inpaint_full_res,
                     inpaint_full_res_padding,
@@ -954,6 +990,7 @@ def create_ui():
                 (seed, "Seed"),
                 (width, "Size-1"),
                 (height, "Size-2"),
+                (scale, "Img2Img Upscale"),
                 (batch_size, "Batch size"),
                 (subseed, "Variation seed"),
                 (subseed_strength, "Variation seed strength"),
