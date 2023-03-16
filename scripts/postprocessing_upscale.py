@@ -1,7 +1,7 @@
 from PIL import Image
 import numpy as np
 
-from modules import scripts_postprocessing, shared
+from modules import scripts_postprocessing, shared, modelloader, ui
 import gradio as gr
 
 from modules.ui_components import FormRow
@@ -29,9 +29,11 @@ class ScriptPostprocessingUpscale(scripts_postprocessing.ScriptPostprocessing):
 
         with FormRow():
             extras_upscaler_1 = gr.Dropdown(label='Upscaler 1', elem_id="extras_upscaler_1", choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name)
+            ui.create_refresh_button(extras_upscaler_1, modelloader.load_upscalers, lambda: {"choices": [x.name for x in shared.sd_upscalers]}, "refresh_extras_upscaler_1")
 
         with FormRow():
             extras_upscaler_2 = gr.Dropdown(label='Upscaler 2', elem_id="extras_upscaler_2", choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name)
+            ui.create_refresh_button(extras_upscaler_2, modelloader.load_upscalers, lambda: {"choices": [x.name for x in shared.sd_upscalers]}, "refresh_extras_upscaler_2")
             extras_upscaler_2_visibility = gr.Slider(minimum=0.0, maximum=1.0, step=0.001, label="Upscaler 2 visibility", value=0.0, elem_id="extras_upscaler_2_visibility")
 
         tab_scale_by.select(fn=lambda: 0, inputs=[], outputs=[selected_tab])
@@ -113,6 +115,7 @@ class ScriptPostprocessingUpscaleSimple(ScriptPostprocessingUpscale):
     def ui(self):
         with FormRow():
             upscaler_name = gr.Dropdown(label='Upscaler', choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name)
+            ui.create_refresh_button(upscaler_name, modelloader.load_upscalers, lambda: {"choices": [x.name for x in shared.sd_upscalers]}, "refresh_extras_upscaler_name")
             upscale_by = gr.Slider(minimum=0.05, maximum=8.0, step=0.05, label="Upscale by", value=2)
 
         return {

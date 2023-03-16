@@ -4,7 +4,7 @@ import modules.scripts as scripts
 import gradio as gr
 from PIL import Image
 
-from modules import processing, shared, sd_samplers, images, devices
+from modules import processing, shared, sd_samplers, images, devices, ui, modelloader
 from modules.processing import Processed
 from modules.shared import opts, cmd_opts, state
 
@@ -20,15 +20,14 @@ class Script(scripts.Script):
         info = gr.HTML("<p style=\"margin-bottom:0.75em\">Will upscale the image by the selected scale factor; use width and height sliders to set tile size</p>")
         overlap = gr.Slider(minimum=0, maximum=256, step=16, label='Tile overlap', value=64, elem_id=self.elem_id("overlap"))
         scale_factor = gr.Slider(minimum=1.0, maximum=4.0, step=0.05, label='Scale Factor', value=2.0, elem_id=self.elem_id("scale_factor"))
-        upscaler_index = gr.Radio(label='Upscaler', choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name, type="index", elem_id=self.elem_id("upscaler_index"))
+        upscaler_name = gr.Dropdown(label='Upscaler', choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name, elem_id=self.elem_id("upscaler_index"))
+        ui.create_refresh_button(upscaler_name, modelloader.load_upscalers, lambda: {"choices": [x.name for x in shared.sd_upscalers]}, "refresh_sd_upscale_upscaler")
 
-        return [info, overlap, upscaler_index, scale_factor]
+        return [info, overlap, upscaler_name, scale_factor]
 
-    def run(self, p, _, overlap, upscaler_index, scale_factor):
-        if isinstance(upscaler_index, str):
-            upscaler_index = [x.name.lower() for x in shared.sd_upscalers].index(upscaler_index.lower())
+    def run(self, p, _, overlap, upscaler_name, scale_factor):
         processing.fix_seed(p)
-        upscaler = shared.sd_upscalers[upscaler_index]
+        upscaler = next(iter([x for x in shared.sd_upscalers if x.name == upscaler_name]), shared.sd_upscalers["None"])
 
         p.extra_generation_params["SD upscale overlap"] = overlap
         p.extra_generation_params["SD upscale upscaler"] = upscaler.name
