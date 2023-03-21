@@ -900,19 +900,34 @@ def create_ui():
 
             img2img_resolution_preview_inputs = [init_img, scale, width, height, resize_mode]
             for input in img2img_resolution_preview_inputs:
-                input.change(
-                    fn=calc_resolution_img2img,
-                    inputs=img2img_resolution_preview_inputs,
-                    outputs=[final_resolution],
-                    show_progress=False,
-                )
-                input.change(
-                    None,
-                    _js="onCalcResolutionImg2Img",
-                    inputs=img2img_resolution_preview_inputs,
-                    outputs=[],
-                    show_progress=False,
-                )
+                if isinstance(input, Releaseable):
+                    input.release(
+                        fn=calc_resolution_img2img,
+                        inputs=img2img_resolution_preview_inputs,
+                        outputs=[final_resolution],
+                        show_progress=False,
+                    )
+                    input.release(
+                        None,
+                        _js="onCalcResolutionImg2Img",
+                        inputs=img2img_resolution_preview_inputs,
+                        outputs=[],
+                        show_progress=False,
+                    )
+                else:
+                    input.change(
+                        fn=calc_resolution_img2img,
+                        inputs=img2img_resolution_preview_inputs,
+                        outputs=[final_resolution],
+                        show_progress=False,
+                    )
+                    input.change(
+                        None,
+                        _js="onCalcResolutionImg2Img",
+                        inputs=img2img_resolution_preview_inputs,
+                        outputs=[],
+                        show_progress=False,
+                    )
 
             img2img_gallery, generation_info, html_info, html_log = create_output_panel("img2img", opts.outdir_img2img_samples)
 
