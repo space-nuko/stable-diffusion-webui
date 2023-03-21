@@ -335,6 +335,18 @@ function selectCheckpoint(name){
     gradioApp().getElementById('change_checkpoint').click()
 }
 
+function onCalcResolutionImg2Img(init_img, scale, width, height, resize_mode){
+    i2iScale = gradioApp().getElementById('img2img_scale')
+    i2iWidth = gradioApp().getElementById('img2img_width')
+    i2iHeight = gradioApp().getElementById('img2img_height')
+
+    setInactive(i2iScale, scale == 1)
+    setInactive(i2iWidth, scale > 1)
+    setInactive(i2iHeight, scale > 1)
+
+    return [init_img, width, height, scale, resize_mode]
+}
+
 function updateInlineStylesheet(css) {
     document.querySelector("gradio-app > div > style").textContent = css;
     return [];
