@@ -3,7 +3,7 @@
 function set_theme(theme){
     gradioURL = window.location.href
     if (!gradioURL.includes('?__theme=')) {
-      window.location.replace(gradioURL + '?__theme=' + theme);
+        window.location.replace(gradioURL + '?__theme=' + theme);
     }
 }
 
@@ -112,7 +112,14 @@ function create_tab_index_args(tabId, args){
 
 function get_img2img_tab_index() {
     let res = args_to_array(arguments)
-    res.splice(-2)
+    res.splice(-2) // gradio also sends outputs to the arguments, pop them off
+    res[0] = get_tab_index('mode_img2img')
+    return res
+}
+
+function get_img2img_tab_index_for_res_preview() {
+    let res = args_to_array(arguments)
+    res.splice(-1) // gradio also sends outputs to the arguments, pop them off
     res[0] = get_tab_index('mode_img2img')
     return res
 }
@@ -219,10 +226,10 @@ function recalculate_prompts_img2img(prompt){
 
 opts = {}
 onUiUpdate(function(){
-	if(Object.keys(opts).length != 0) return;
+    if(Object.keys(opts).length != 0) return;
 
-	json_elem = gradioApp().getElementById('settings_json')
-	if(json_elem == null) return;
+    json_elem = gradioApp().getElementById('settings_json')
+    if(json_elem == null) return;
 
     var textarea = json_elem.querySelector('textarea')
     var jsdata = textarea.value
@@ -262,8 +269,8 @@ onUiUpdate(function(){
         counter.classList.add("token-counter")
         prompt.parentElement.style.position = "relative"
 
-		promptTokecountUpdateFuncs[id] = function(){ update_token_counter(id_button); }
-		textarea.addEventListener("input", promptTokecountUpdateFuncs[id]);
+        promptTokecountUpdateFuncs[id] = function(){ update_token_counter(id_button); }
+        textarea.addEventListener("input", promptTokecountUpdateFuncs[id]);
     }
 
     registerTextarea('txt2img_prompt', 'txt2img_token_counter', 'txt2img_token_button')
@@ -288,11 +295,11 @@ onOptionsChanged(function(){
     sd_checkpoint_hash = opts.sd_checkpoint_hash || ""
     shorthash = sd_checkpoint_hash.substr(0,10)
 
-	if(elem && elem.textContent != shorthash){
-	    elem.textContent = shorthash
-	    elem.title = sd_checkpoint_hash
-	    elem.href = "https://google.com/search?q=" + sd_checkpoint_hash
-	}
+    if(elem && elem.textContent != shorthash){
+        elem.textContent = shorthash
+        elem.title = sd_checkpoint_hash
+        elem.href = "https://google.com/search?q=" + sd_checkpoint_hash
+    }
 })
 
 let txt2img_textarea, img2img_textarea = undefined;
@@ -300,38 +307,38 @@ let wait_time = 800
 let token_timeouts = {};
 
 function update_txt2img_tokens(...args) {
-	update_token_counter("txt2img_token_button")
-	if (args.length == 2)
-		return args[0]
-	return args;
+    update_token_counter("txt2img_token_button")
+    if (args.length == 2)
+        return args[0]
+    return args;
 }
 
 function update_img2img_tokens(...args) {
-	update_token_counter("img2img_token_button")
-	if (args.length == 2)
-		return args[0]
-	return args;
+    update_token_counter("img2img_token_button")
+    if (args.length == 2)
+        return args[0]
+    return args;
 }
 
 function update_token_counter(button_id) {
-	if (token_timeouts[button_id])
-		clearTimeout(token_timeouts[button_id]);
-	token_timeouts[button_id] = setTimeout(() => gradioApp().getElementById(button_id)?.click(), wait_time);
+    if (token_timeouts[button_id])
+        clearTimeout(token_timeouts[button_id]);
+    token_timeouts[button_id] = setTimeout(() => gradioApp().getElementById(button_id)?.click(), wait_time);
 }
 
 function restart_reload(){
     document.body.innerHTML='<h1 style="font-family:monospace;margin-top:20%;color:lightgray;text-align:center;">Reloading...</h1>';
     setTimeout(function(){location.reload()},2000)
 
-    return []
+    return [];
 }
 
 // Simulate an `input` DOM event for Gradio Textbox component. Needed after you edit its contents in javascript, otherwise your edits
 // will only visible on web page and not sent to python.
 function updateInput(target){
-	let e = new Event("input", { bubbles: true })
-	Object.defineProperty(e, "target", {value: target})
-	target.dispatchEvent(e);
+    let e = new Event("input", { bubbles: true })
+    Object.defineProperty(e, "target", {value: target})
+    target.dispatchEvent(e);
 }
 
 
@@ -341,7 +348,7 @@ function selectCheckpoint(name){
     gradioApp().getElementById('change_checkpoint').click()
 }
 
-function onCalcResolutionImg2Img(init_img, scale, width, height, resize_mode){
+function onCalcResolutionImg2Img(mode, scale, width, height, resize_mode, init_img, sketch, init_img_with_mask, inpaint_color_sketch, init_img_inpaint){
     i2iScale = gradioApp().getElementById('img2img_scale')
     i2iWidth = gradioApp().getElementById('img2img_width')
     i2iHeight = gradioApp().getElementById('img2img_height')
@@ -350,7 +357,7 @@ function onCalcResolutionImg2Img(init_img, scale, width, height, resize_mode){
     setInactive(i2iWidth, scale > 1)
     setInactive(i2iHeight, scale > 1)
 
-    return [init_img, width, height, scale, resize_mode]
+    return []
 }
 
 function updateInlineStylesheet(css) {
