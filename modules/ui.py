@@ -138,7 +138,13 @@ def calc_resolution_hires(enable, width, height, hr_scale, hr_resize_x, hr_resiz
     return f"resize: from <span class='resolution'>{p.width}x{p.height}</span> to <span class='resolution'>{p.hr_resize_x or p.hr_upscale_to_x}x{p.hr_resize_y or p.hr_upscale_to_y}</span>"
 
 
-def calc_resolution_img2img(init_img, scale, resize_x, resize_y, resize_mode):
+def calc_resolution_img2img(mode, scale, resize_x, resize_y, resize_mode, *i2i_images):
+    init_img = None
+    if mode in {0, 1, 3, 4}:
+        init_img = i2i_images[mode]
+    elif mode == 2:
+        init_img = i2i_images[mode]["image"]
+
     if not init_img:
         return ""
 
@@ -842,10 +848,13 @@ def create_ui():
                                     outputs=[inpaint_controls, mask_alpha],
                                 )
 
-            img2img_resolution_preview_inputs = [init_img, scale, width, height, resize_mode]
+            img2img_resolution_preview_inputs = [dummy_component, # filled in by selected img2img tab index in _js
+                                                 scale, width, height, resize_mode,
+                                                 init_img, sketch, init_img_with_mask, inpaint_color_sketch, init_img_inpaint]
             for input in img2img_resolution_preview_inputs:
                 input.change(
                     fn=calc_resolution_img2img,
+                    _js="get_img2img_tab_index_for_res_preview",
                     inputs=img2img_resolution_preview_inputs,
                     outputs=[final_resolution],
                     show_progress=False,
